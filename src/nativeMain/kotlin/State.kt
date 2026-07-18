@@ -1,3 +1,4 @@
+const val MEMORY_SIZE: SWord = 0xFFFFu
 const val STACK_POINTER_OFFSET: SWord = 0x0100u
 const val NON_MASKABLE_INTERRUPT_VECTOR: SWord = 0xFFFAu
 const val RESET_VECTOR: SWord = 0xFFFCu
@@ -49,9 +50,10 @@ class State {
         get() = status.checkBit(7)
         set(value) = status.setBit(7, value).let { status = it }
 
-    private val memory: Array<SByte> = Array(0xFFFF) { 0u }
+    private val memory: Array<SByte> = Array(MEMORY_SIZE.toInt()) { 0u }
 
     fun reset() {
+        // Taken from https://www.pagetable.com/?p=410 RESET
         programCounter = readWord(RESET_VECTOR)
         accumulator = 0u
         indexRegisterX = 0u
@@ -60,6 +62,7 @@ class State {
         status = 0u
         totalCycles = 8u
     }
+
 
     private fun readByte(address: SWord): SByte = memory[address.toInt()]
 
@@ -74,6 +77,11 @@ class State {
         memory[address.toInt()] = value.toSByte()
         memory[address.toInt() + 1] = (value shr 8).toSByte()
     }
+
+    private fun pushStack(value: SByte): Unit = writeByte((STACK_POINTER_OFFSET + stackPointer--).toSWord(), value)
+
+    private fun pullStack(): SByte = readByte((STACK_POINTER_OFFSET + ++stackPointer).toSWord())
+
 
     // Debug function
     fun getMemory(): Array<SByte> = memory.copyOf()
@@ -90,5 +98,20 @@ class State {
                     "Accumulator: ${accumulator.hex()} | Index Register X: ${indexRegisterX.hex()} | Index Register Y: ${indexRegisterY.hex()} | Program Counter: ${programCounter.hex()} | Stack Pointer: ${stackPointer.hex()}\n" +
                     "Carry: $carryFlag | Zero: $zeroFlag | Interrupt: $interruptFlag | Decimal: $decimalModeFlag | Break: $breakFlag | Overflow: $overflowFlag | Negative: $negativeFlag"
         )
+    }
+
+    fun debugPrintMemoryAddress(address: SWord) {
+        println("${address.hex()} -> ${readByte(address).hex()}")
+    }
+
+    fun debugPrintMemory() {
+        for (i in 0u.toSWord()..<MEMORY_SIZE)
+            debugPrintMemoryAddress(i.toSWord())
+    }
+
+    fun debugPrintStack() {
+        for (i in STACK_POINTER_OFFSET..(STACK_POINTER_OFFSET + 0xFFu).toSWord()) {
+            debugPrintMemoryAddress(i.toSWord())
+        }
     }
 }
