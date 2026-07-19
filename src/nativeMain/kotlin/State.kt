@@ -42,6 +42,10 @@ class State {
         get() = status.checkBit(4)
         set(value) = status.setBit(4, value).let { status = it }
 
+    var unusedFlag: Boolean
+        get() = status.checkBit(5)
+        set(value) = status.setBit(5, value).let { status = it }
+
     var overflowFlag: Boolean
         get() = status.checkBit(6)
         set(value) = status.setBit(6, value).let { status = it }
@@ -52,6 +56,26 @@ class State {
 
     private val memory: Array<SByte> = Array(MEMORY_SIZE.toInt()) { 0u }
 
+    private fun interrupt(addressVector: SWord) {
+        pushStack(programCounter.shl(8).toSByte())
+        pushStack(programCounter.toSByte())
+
+        breakFlag = false
+        pushStack(status)
+
+        interruptFlag = true
+        unusedFlag = true
+
+        programCounter = readWord(addressVector)
+
+        totalCycles += 7u
+    }
+
+    fun interruptRequest() {
+        if (interruptFlag) return
+        interrupt(INTERRUPT_VECTOR)
+    }
+
     fun reset() {
         // Taken from https://www.pagetable.com/?p=410 RESET
         programCounter = readWord(RESET_VECTOR)
@@ -60,9 +84,12 @@ class State {
         indexRegisterY = 0u
         stackPointer = 0xFDu
         status = 0u
-        totalCycles = 8u
+        totalCycles += 8u
     }
 
+    fun nonMaskableInterrupt() {
+        interrupt(NON_MASKABLE_INTERRUPT_VECTOR)
+    }
 
     private fun readByte(address: SWord): SByte = memory[address.toInt()]
 
